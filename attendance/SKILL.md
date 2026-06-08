@@ -22,6 +22,17 @@ description: >
 - **覆盖团队**：MY 转化客服组（马来西亚）、US 转化客服组（美国）
 - **默认月份**：当前月
 
+## 默认行为
+
+**每次触发此 skill，必须先自动运行脚本刷新数据，再告知用户结果。** 无需询问是否刷新，直接执行：
+
+```bash
+cd C:/Users/irisding && node attendance_fetch.js
+```
+
+脚本运行成功后（输出 `Saved:`），告知用户"已刷新，Dashboard 已打开"。
+如果脚本报错，按下方"Cookie 过期处理"引导用户更新 Cookie。
+
 ## 常见任务
 
 ### 1. 生成 / 刷新 Dashboard

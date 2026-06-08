@@ -10,6 +10,20 @@ const COOKIES = 'cipher_device_id=1768982866919775; FUTUOA_LANG.sig=g0bWFGgavbFZ
 
 const START_MONTH = '2026-01'; // fetch from this month to current
 
+// English display names — edit if any are wrong
+const DISPLAY_NAMES = {
+  alexfoong:   'Alex Foong',
+  emelinlee:   'Emelin Lee',
+  jackshenlee: 'Jackshen Lee',
+  jordanliow:  'Jordan Liow',
+  mikilee:     'Miki Lee',
+  vaashini:    'Vaashini K. Palaniappan',
+  zhenconglim: 'Zhencong Lim',
+  alvinsim:    'Alvin Sim',
+  jacelynlim:  'Jacelyn Lim',
+  vincentyew:  'Vincent Yew',
+};
+
 function get(url) {
   return new Promise((resolve, reject) => {
     const u = new URL(url);
@@ -143,7 +157,7 @@ function renderMonthPane(data) {
     const ms = monthlyStats.filter(e => nicks.has(e.nick));
 
     const nickName = {};
-    recs.forEach(r => { nickName[r.nick] = r.name; });
+    recs.forEach(r => { nickName[r.nick] = DISPLAY_NAMES[r.nick] || r.name; });
 
     const dayAbs = {};
     [...nicks].forEach(nick => {
@@ -165,15 +179,37 @@ function renderMonthPane(data) {
     const empNames = Object.values(nickName).sort((a,b)=>a.localeCompare(b,'zh'));
     const calRows = weeks.map(w => `<tr>${w.map(d=>renderCell(d,recs,dayAbs)).join('')}</tr>`).join('');
 
+    // Monthly summary: per-person leave counts
+    const leaveCounts = {};
+    [...nicks].forEach(nick => {
+      if (!vacationMap[nick]) return;
+      const counts = {};
+      Object.entries(vacationMap[nick]).forEach(([ds, type]) => {
+        if (ds.startsWith(monthStr)) counts[type] = (counts[type] || 0) + 1;
+      });
+      if (Object.keys(counts).length > 0) leaveCounts[nick] = counts;
+    });
+    const fullNames = [...nicks]
+      .filter(n => !leaveCounts[n])
+      .map(n => nickName[n] || n)
+      .sort((a,b) => a.localeCompare(b,'zh'));
+    const leaveRows = Object.entries(leaveCounts)
+      .sort(([a],[b]) => (nickName[a]||a).localeCompare(nickName[b]||b,'zh'))
+      .map(([nick, counts]) => {
+        const name = nickName[nick] || nick;
+        const total = Object.values(counts).reduce((s,v)=>s+v, 0);
+        const parts = Object.entries(counts).map(([t,d])=>`${d}天${t}`).join('、');
+        return `<div class="sl-row"><span class="sl-name">${name}</span><span class="sl-days">休假 ${total} 天</span><span class="sl-parts">（${parts}）</span></div>`;
+      }).join('');
+
+    const summaryHTML = `<div class="summary">
+      <div class="sum-title">月度出勤简报</div>
+      <div class="sum-full"><span class="sum-label">全勤</span>${fullNames.length ? fullNames.map(n=>`<span class="sl-chip">${n}</span>`).join('') : '<span class="sl-none">—</span>'}</div>
+      ${leaveRows ? `<div class="sum-leave"><span class="sum-label">休假</span><div class="sl-list">${leaveRows}</div></div>` : ''}
+    </div>`;
+
     return `<div class="team-section" id="tab-${team.key}-${monthStr}">
-      <div class="sbar">
-        <div class="si"><div class="sl">迟到</div><div class="sv orange">${stats.late}</div></div>
-        <div class="si"><div class="sl">早退</div><div class="sv orange">${stats.early}</div></div>
-        <div class="si"><div class="sl">缺勤</div><div class="sv red">${stats.absent}</div></div>
-        <div class="si"><div class="sl">休假（人次）</div><div class="sv blue">${stats.vacation}</div></div>
-        <div class="si"><div class="sl">员工人数</div><div class="sv">${stats.count}</div></div>
-      </div>
-      <div class="emplist">${empNames.map(n=>`<span class="echip">${n}</span>`).join('')}</div>
+      ${summaryHTML}
       <div class="calwrap">
         <table class="cal">
           <thead><tr>${DOW.map((d,i)=>`<th class="${i===0?'sun':i===6?'sat':''}">${d}</th>`).join('')}</tr></thead>
@@ -237,12 +273,6 @@ h1{font-size:20px;font-weight:600;color:#1a1a2e;margin-bottom:4px}
 .team-section{display:none}
 .team-section.active{display:block}
 
-.sbar{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.08);padding:14px 0;display:flex;margin-bottom:14px}
-.si{flex:1;text-align:center;border-right:1px solid #f0f0f0}
-.si:last-child{border-right:none}
-.sl{font-size:12px;color:#999;margin-bottom:4px}
-.sv{font-size:24px;font-weight:600;color:#1a1a2e}
-.sv.red{color:#e53935}.sv.blue{color:#1565c0}.sv.orange{color:#e65100}
 
 .emplist{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
 .echip{padding:4px 12px;background:#fff;border:1px solid #e0e0e0;border-radius:20px;font-size:12px;color:#555}
@@ -266,6 +296,19 @@ td.cell.today{box-shadow:inset 0 0 0 2px #1976d2}
 .atag{display:flex;justify-content:space-between;align-items:center;margin-top:3px;padding:2px 6px;background:#fff0f0;border-radius:4px;gap:4px}
 .aname{font-size:11px;color:#333;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .atype{font-size:10px;white-space:nowrap;flex-shrink:0;font-weight:600}
+
+.summary{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.08);padding:16px 20px;margin-bottom:14px}
+.sum-title{font-size:13px;font-weight:600;color:#1a1a2e;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #f0f0f0}
+.sum-full,.sum-leave{display:flex;align-items:flex-start;gap:12px;margin-bottom:8px}
+.sum-leave{align-items:flex-start}
+.sum-label{font-size:12px;color:#999;white-space:nowrap;padding-top:3px;min-width:32px}
+.sl-chip{display:inline-block;padding:2px 10px;background:#f0faf0;border:1px solid #c8e6c9;border-radius:12px;font-size:12px;color:#2e7d32;margin:2px 4px 2px 0}
+.sl-none{font-size:12px;color:#ccc}
+.sl-list{display:flex;flex-direction:column;gap:4px}
+.sl-row{display:flex;align-items:center;gap:8px;font-size:12px}
+.sl-name{font-weight:600;color:#333;min-width:80px}
+.sl-days{color:#1565c0;font-weight:500}
+.sl-parts{color:#888}
 
 .legend{display:flex;gap:16px;margin-top:16px;flex-wrap:wrap}
 .li{display:flex;align-items:center;gap:5px;font-size:12px;color:#777}
